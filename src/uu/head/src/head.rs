@@ -12,13 +12,17 @@ extern crate uucore;
 
 use std::collections::VecDeque;
 use std::fs::File;
-use std::io::{stdin, BufRead, BufReader, Read};
+use std::io::{self, stdin, BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::str::from_utf8;
+
+extern crate unicode_reader;
+use unicode_reader::Graphemes;
 
 static SYNTAX: &str = "";
 static SUMMARY: &str = "";
 static LONG_HELP: &str = "";
+static BUFFER_SIZE: u32 = 4096;
 
 enum FilterMode {
     Bytes(usize),
@@ -133,7 +137,6 @@ pub fn uumain(args: impl uucore::Args) -> i32 {
         settings.verbose = true;
     }
 
-
     if files.is_empty() {
         let mut buffer = BufReader::new(stdin());
         head(&mut buffer, &settings);
@@ -209,8 +212,35 @@ fn head<T: Read>(reader: &mut BufReader<T>, settings: &Settings) -> bool {
         }
         FilterMode::Lines(count) => {
             if settings.zero_terminated {
-                for line in reader.split(0).take(count) {
-                    print!("{}\0", String::from_utf8(line.unwrap()).unwrap())
+                let mut graphemes = Graphemes::from(reader);
+
+                let mut n = 0;
+
+                'line: for _ in 0..count {
+                    'char: loop {
+                        if n >= BUFFER_SIZE {
+                            n = 0;
+                            io::stdout().flush().unwrap();
+                        }
+
+                        match graphemes.next() {
+                            None => {
+                                break 'line;
+                            }
+                            Some(c) => match c.unwrap().as_str() {
+                                "\0" => {
+                                    print!("\0");
+                                    n += 1;
+                                    break;
+                                }
+
+                                other => {
+                                    print!("{}", other);
+                                    n += 1;
+                                }
+                            },
+                        }
+                    }
                 }
             } else {
                 for line in reader.lines().take(count) {

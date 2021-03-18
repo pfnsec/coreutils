@@ -16,6 +16,7 @@ path = "src/head.rs"
 
 [dependencies]
 libc = "0.2.42"
+unicode_reader = "1.0.1"
 uucore = { version=">=0.0.7", package="uucore", path="../../uucore" }
 uucore_procs = { version=">=0.0.5", package="uucore_procs", path="../../uucore_procs" }
 
